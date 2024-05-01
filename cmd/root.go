@@ -8,9 +8,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
+	"github.com/kylape/acs-export-example/pkg/csv"
 	"github.com/kylape/acs-export-example/pkg/export"
 	"github.com/kylape/acs-export-example/pkg/table"
 )
+
+type configType struct {
+	output string
+}
+
+var config = configType{}
 
 var rootCmd = &cobra.Command{
 	Use:   "acs-export-example",
@@ -36,9 +43,14 @@ var rootCmd = &cobra.Command{
 			panic(errors.Wrap(err, "could not get images"))
 		}
 
-		err = table.RenderTable(deployments, images)
-		if err != nil {
-			panic(errors.Wrap(err, "Failed to render table"))
+		if config.output == "table" {
+			if err = table.RenderTable(deployments, images); err != nil {
+				panic(errors.Wrap(err, "Failed to render table"))
+			}
+		} else if config.output == "csv" {
+			if err = csv.RenderCsv(deployments, images); err != nil {
+				panic(errors.Wrap(err, "Failed to render table"))
+			}
 		}
 	},
 }
@@ -48,4 +60,8 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func init() {
+	rootCmd.PersistentFlags().StringVarP(&config.output, "output", "o", "table", "Output format.  Available options: [table, csv]")
 }
