@@ -15,6 +15,8 @@ import (
 	roxctlIO "github.com/stackrox/rox/roxctl/common/io"
 	"github.com/stackrox/rox/roxctl/common/logger"
 	"github.com/stackrox/rox/roxctl/common/printer"
+
+	"github.com/kylape/acs-export-example/pkg/config"
 )
 
 type Exporter struct {
@@ -35,12 +37,12 @@ func New(ctx context.Context) (Exporter, error) {
 	}, nil
 }
 
-func (ex *Exporter) GetImages() ([]*storage.Image, error) {
+func (ex *Exporter) GetImages(cfg config.ConfigType) ([]*storage.Image, error) {
 	svc := v1.NewImageServiceClient(ex.conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	client, err := svc.ExportImages(ctx, &v1.ExportImageRequest{})
+	client, err := svc.ExportImages(ctx, &v1.ExportImageRequest{Query: cfg.QueryFilter})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize stream client")
 	}
@@ -61,12 +63,12 @@ func (ex *Exporter) GetImages() ([]*storage.Image, error) {
 	return images, nil
 }
 
-func (ex *Exporter) GetDeployments() ([]*storage.Deployment, error) {
+func (ex *Exporter) GetDeployments(cfg config.ConfigType) ([]*storage.Deployment, error) {
 	svc := v1.NewDeploymentServiceClient(ex.conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	client, err := svc.ExportDeployments(ctx, &v1.ExportDeploymentRequest{})
+	client, err := svc.ExportDeployments(ctx, &v1.ExportDeploymentRequest{Query: cfg.QueryFilter})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize stream client")
 	}

@@ -8,16 +8,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
+	"github.com/kylape/acs-export-example/pkg/config"
 	"github.com/kylape/acs-export-example/pkg/csv"
 	"github.com/kylape/acs-export-example/pkg/export"
+	"github.com/kylape/acs-export-example/pkg/filter"
 	"github.com/kylape/acs-export-example/pkg/table"
 )
 
-type configType struct {
-	output string
-}
-
-var config = configType{}
+var cfg = config.ConfigType{}
 
 var rootCmd = &cobra.Command{
 	Use:   "acs-export-example",
@@ -32,22 +30,24 @@ var rootCmd = &cobra.Command{
 		}
 
 		println("Fetching deployments")
-		deployments, err := exporter.GetDeployments()
+		deployments, err := exporter.GetDeployments(cfg)
 		if err != nil {
 			panic(errors.Wrap(err, "could not get deployments"))
 		}
 
 		println("Fetching images")
-		images, err := exporter.GetImages()
+		images, err := exporter.GetImages(cfg)
 		if err != nil {
 			panic(errors.Wrap(err, "could not get images"))
 		}
 
-		if config.output == "table" {
+		deployments, images, err = filter.Filter(deployments, images, cfg)
+
+		if cfg.Output == "table" {
 			if err = table.RenderTable(deployments, images); err != nil {
 				panic(errors.Wrap(err, "Failed to render table"))
 			}
-		} else if config.output == "csv" {
+		} else if cfg.Output == "csv" {
 			if err = csv.RenderCsv(deployments, images); err != nil {
 				panic(errors.Wrap(err, "Failed to render table"))
 			}
@@ -63,5 +63,10 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&config.output, "output", "o", "table", "Output format.  Available options: [table, csv]")
+	rootCmd.PersistentFlags().StringVarP(&cfg.Output, "output", "o", "table", "Output format.  Available options: [table, csv]")
+	rootCmd.PersistentFlags().StringVarP(&cfg.NamespaceFilter, "namespace", "n", "", "Namespace filter. Filtered client-side.")
+	rootCmd.PersistentFlags().StringVarP(&cfg.ClusterFilter, "cluster", "c", "", "Cluster filter. Filtered client-side.")
+	rootCmd.PersistentFlags().StringVarP(&cfg.ImageNameFilter, "image", "i", "", "Image name filter. Filtered client-side.")
+	rootCmd.PersistentFlags().StringVarP(&cfg.VulnerabilityFilter, "vuln", "v", "", "Vulnerability filter. Filtered client-side.")
+	rootCmd.PersistentFlags().StringVarP(&cfg.QueryFilter, "query", "q", "", "Pass a query string to the server")
 }
