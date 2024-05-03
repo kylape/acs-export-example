@@ -59,19 +59,12 @@ func RenderTable(deployments []*storage.Deployment, images []*storage.Image) err
 
 			for _, component := range image.Scan.Components {
 				for _, vuln := range component.Vulns {
-					score := "?"
-					if vuln.CvssV3 != nil {
-						score = fmt.Sprintf("v3: %.2f", vuln.CvssV3.Score)
-					} else if vuln.CvssV2 != nil {
-						score = fmt.Sprintf("v2: %.2f", vuln.CvssV2.Score)
-					}
-
 					fixable := ""
 					if vuln.GetFixedBy() != "" {
 						fixable = "fixable"
 					}
 
-					t.Row(vuln.Cve, score, d.ClusterName, d.Namespace, imageName, component.Name, fixable)
+					t.Row(vuln.Cve, fmt.Sprint(vuln.Cvss), d.ClusterName, d.Namespace, imageName, component.Name, fixable)
 				}
 			}
 		}

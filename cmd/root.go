@@ -22,6 +22,11 @@ var rootCmd = &cobra.Command{
 	Short: "Use the ACS export APIs",
 	Long:  `CLI to browse data pulled from ACS (Advanced Cluster Security) (i.e. StackRox).`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := validateFlags(); err != nil {
+			fmt.Printf("%v\n", err)
+			os.Exit(1)
+		}
+
 		ctx := context.Background()
 
 		exporter, err := export.New(ctx)
@@ -29,19 +34,31 @@ var rootCmd = &cobra.Command{
 			panic(errors.Wrap(err, "could not create exporter"))
 		}
 
+		query := cfg.QueryFilter
+
+		if cfg.FilterType == "server" {
+			query = filter.BuildServerQuery(cfg)
+		}
+
 		println("Fetching deployments")
-		deployments, err := exporter.GetDeployments(cfg)
+		deployments, err := exporter.GetDeployments(query)
 		if err != nil {
 			panic(errors.Wrap(err, "could not get deployments"))
 		}
 
 		println("Fetching images")
-		images, err := exporter.GetImages(cfg)
+		images, err := exporter.GetImages(query)
 		if err != nil {
 			panic(errors.Wrap(err, "could not get images"))
 		}
 
-		deployments, images, err = filter.Filter(deployments, images, cfg)
+		if cfg.FilterType == "client" {
+			deployments, images = filter.ClientFilter(deployments, images, cfg)
+		}
+
+		// This runs for both client and server filtering because the server
+		// doesn't filter out CVEs off of image scans that don't match the CVE filter
+		deployments, images = filter.ClientVulnFilter(deployments, images, cfg)
 
 		if cfg.Output == "table" {
 			if err = table.RenderTable(deployments, images); err != nil {
@@ -62,11 +79,41 @@ func Execute() {
 	}
 }
 
+func contains(a []string, elem string) bool {
+	for _, i := range a {
+		if i == elem {
+			return true
+		}
+	}
+
+	return false
+}
+
+func validateFlags() error {
+	outputOptions := []string{"table", "csv"}
+	filterTypeOptions := []string{"client", "server"}
+
+	if !contains(outputOptions, cfg.Output) {
+		return errors.Errorf("Invalid value for --output=\"%s\".  Available options: %v", cfg.Output, outputOptions)
+	}
+
+	if !contains(filterTypeOptions, cfg.FilterType) {
+		return errors.Errorf("Invalid value for --filter-type=\"%s\".  Available options: %v", cfg.FilterType, filterTypeOptions)
+	}
+
+	if cfg.QueryFilter != "" && cfg.FilterType == "server" {
+		return errors.New("Cannot supply a query filter when --filter-type=server")
+	}
+
+	return nil
+}
+
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfg.Output, "output", "o", "table", "Output format.  Available options: [table, csv]")
-	rootCmd.PersistentFlags().StringVarP(&cfg.NamespaceFilter, "namespace", "n", "", "Namespace filter. Filtered client-side.")
-	rootCmd.PersistentFlags().StringVarP(&cfg.ClusterFilter, "cluster", "c", "", "Cluster filter. Filtered client-side.")
-	rootCmd.PersistentFlags().StringVarP(&cfg.ImageNameFilter, "image", "i", "", "Image name filter. Filtered client-side.")
-	rootCmd.PersistentFlags().StringVarP(&cfg.VulnerabilityFilter, "vuln", "v", "", "Vulnerability filter. Filtered client-side.")
-	rootCmd.PersistentFlags().StringVarP(&cfg.QueryFilter, "query", "q", "", "Pass a query string to the server")
+	rootCmd.PersistentFlags().StringVarP(&cfg.NamespaceFilter, "namespace", "n", "", "Namespace client-side filter.")
+	rootCmd.PersistentFlags().StringVarP(&cfg.ClusterFilter, "cluster", "c", "", "Cluster client-side filter.")
+	rootCmd.PersistentFlags().StringVarP(&cfg.ImageNameFilter, "image", "i", "", "Image name client-side filter.")
+	rootCmd.PersistentFlags().StringVarP(&cfg.VulnerabilityFilter, "vuln", "v", "", "Vulnerability client-side filter.")
+	rootCmd.PersistentFlags().StringVarP(&cfg.QueryFilter, "query", "q", "", "Pass a query string to the server. Incompatible with --filter-type=server")
+	rootCmd.PersistentFlags().StringVarP(&cfg.FilterType, "filter-type", "t", "client", "Where to do the param-based filtering. Available options: [client, server]")
 }
