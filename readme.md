@@ -33,7 +33,7 @@ Currently the only way to configure the Central endpoint is to set these two env
 
 ## Output Formats
 
-Print a table to the console with all reported CVEs:
+Print a table to the console with all reported vulnerabilities:
 
     $ ./acs-export-example 
 
@@ -74,7 +74,7 @@ If you'd rather build the query string for the server yourself:
 
 ## Stats
 
-The `--stats` option prints various timings and counts that may be interesting to use for performace analysis:
+The `--stats` option prints various timings and counts that may be interesting to use for performance analysis:
 
 ```
 $ ./acs-export-example -o csv -s > export.csv
@@ -96,4 +96,6 @@ Counts:
 
 ## Building
 
-```go build```
+```
+go build
+```
