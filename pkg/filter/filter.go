@@ -9,6 +9,20 @@ import (
 	storage "github.com/stackrox/rox/generated/storage"
 )
 
+func keepVulnBasedOnFixableFilter(vuln *storage.EmbeddedVulnerability, fixableFilter string) bool {
+	if fixableFilter == "" {
+		return true
+	}
+
+	fixable := "true"
+
+	if vuln.GetFixedBy() == "" {
+		fixable = "false"
+	}
+
+	return fixableFilter == fixable
+}
+
 func ClientVulnFilter(deployments []*storage.Deployment, images []*storage.Image, cfg config.ConfigType) (filteredDeployments []*storage.Deployment, filteredImages []*storage.Image) {
 	for _, image := range images {
 		vulnFound := false
@@ -16,7 +30,7 @@ func ClientVulnFilter(deployments []*storage.Deployment, images []*storage.Image
 			for _, component := range image.Scan.Components {
 				vulnsToKeep := []*storage.EmbeddedVulnerability{}
 				for _, vuln := range component.Vulns {
-					if strings.Contains(vuln.Cve, cfg.VulnerabilityFilter) {
+					if strings.Contains(vuln.Cve, cfg.VulnerabilityFilter) && keepVulnBasedOnFixableFilter(vuln, cfg.FixableFilter) {
 						vulnFound = true
 						vulnsToKeep = append(vulnsToKeep, vuln)
 					}
@@ -84,7 +98,7 @@ func BuildServerQuery(cfg config.ConfigType) string {
 	ret := buffer.String()
 
 	if len(ret) > 0 {
-		println(ret[:len(ret)-1])
+		fmt.Printf("Server query: %s\n", ret[:len(ret)-1])
 		return ret[:len(ret)-1]
 	}
 	return ""

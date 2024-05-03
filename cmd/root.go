@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -89,16 +90,37 @@ func contains(a []string, elem string) bool {
 	return false
 }
 
+func quoteWrap(a []string) string {
+	var buffer bytes.Buffer
+
+	buffer.WriteString("[")
+	for i, s := range a {
+		buffer.WriteString(fmt.Sprintf("\"%s\"", s))
+
+		if i < len(a)-1 {
+			buffer.WriteString(", ")
+		}
+	}
+	buffer.WriteString("]")
+
+	return buffer.String()
+}
+
 func validateFlags() error {
 	outputOptions := []string{"table", "csv"}
 	filterTypeOptions := []string{"client", "server"}
+	fixableOptions := []string{"true", "false", ""}
 
 	if !contains(outputOptions, cfg.Output) {
-		return errors.Errorf("Invalid value for --output=\"%s\".  Available options: %v", cfg.Output, outputOptions)
+		return errors.Errorf("Invalid value for --output=\"%s\".  Available options: %v", cfg.Output, quoteWrap(outputOptions))
 	}
 
 	if !contains(filterTypeOptions, cfg.FilterType) {
-		return errors.Errorf("Invalid value for --filter-type=\"%s\".  Available options: %v", cfg.FilterType, filterTypeOptions)
+		return errors.Errorf("Invalid value for --filter-type=\"%s\".  Available options: %v", cfg.FilterType, quoteWrap(filterTypeOptions))
+	}
+
+	if !contains(fixableOptions, cfg.FixableFilter) {
+		return errors.Errorf("Invalid value for --fixable=\"%s\".  Available options: %v", cfg.FixableFilter, quoteWrap(fixableOptions))
 	}
 
 	if cfg.QueryFilter != "" && cfg.FilterType == "server" {
@@ -115,5 +137,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfg.ImageNameFilter, "image", "i", "", "Image name client-side filter.")
 	rootCmd.PersistentFlags().StringVarP(&cfg.VulnerabilityFilter, "vuln", "v", "", "Vulnerability client-side filter.")
 	rootCmd.PersistentFlags().StringVarP(&cfg.QueryFilter, "query", "q", "", "Pass a query string to the server. Incompatible with --filter-type=server")
+	rootCmd.PersistentFlags().StringVarP(&cfg.FixableFilter, "fixable", "f", "", "Filter on whether a cve is fixable.  Available options: [true, false, \"\"].")
 	rootCmd.PersistentFlags().StringVarP(&cfg.FilterType, "filter-type", "t", "client", "Where to do the param-based filtering. Available options: [client, server]")
 }

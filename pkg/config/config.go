@@ -7,6 +7,7 @@ type ConfigType struct {
 	NamespaceFilter     string
 	QueryFilter         string
 	VulnerabilityFilter string
+	FixableFilter       string
 	FilterType          string
 }
 
@@ -16,5 +17,6 @@ func (cfg *ConfigType) QueryStrings() map[string]string {
 	ret["IMAGE"] = "r/" + cfg.ImageNameFilter
 	ret["NAMESPACE"] = cfg.NamespaceFilter
 	ret["CVE"] = "r/" + cfg.VulnerabilityFilter
+	ret["FIXABLE"] = cfg.FixableFilter
 	return ret
 }
