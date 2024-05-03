@@ -17,6 +17,7 @@ import (
 )
 
 var cfg = config.ConfigType{}
+var stats = &config.Stats{}
 
 var rootCmd = &cobra.Command{
 	Use:   "acs-export-example",
@@ -30,7 +31,7 @@ var rootCmd = &cobra.Command{
 
 		ctx := context.Background()
 
-		exporter, err := export.New(ctx)
+		exporter, err := export.New(ctx, stats)
 		if err != nil {
 			panic(errors.Wrap(err, "could not create exporter"))
 		}
@@ -41,25 +42,25 @@ var rootCmd = &cobra.Command{
 			query = filter.BuildServerQuery(cfg)
 		}
 
-		println("Fetching deployments")
+		os.Stderr.WriteString("Fetching deployments\n")
 		deployments, err := exporter.GetDeployments(query)
 		if err != nil {
 			panic(errors.Wrap(err, "could not get deployments"))
 		}
 
-		println("Fetching images")
+		os.Stderr.WriteString("Fetching images\n")
 		images, err := exporter.GetImages(query)
 		if err != nil {
 			panic(errors.Wrap(err, "could not get images"))
 		}
 
 		if cfg.FilterType == "client" {
-			deployments, images = filter.ClientFilter(deployments, images, cfg)
+			deployments, images = filter.ClientFilter(deployments, images, cfg, stats)
 		}
 
 		// This runs for both client and server filtering because the server
 		// doesn't filter out CVEs off of image scans that don't match the CVE filter
-		deployments, images = filter.ClientVulnFilter(deployments, images, cfg)
+		deployments, images = filter.ClientVulnFilter(deployments, images, cfg, stats)
 
 		if cfg.Output == "table" {
 			if err = table.RenderTable(deployments, images); err != nil {
@@ -69,6 +70,10 @@ var rootCmd = &cobra.Command{
 			if err = csv.RenderCsv(deployments, images); err != nil {
 				panic(errors.Wrap(err, "Failed to render table"))
 			}
+		}
+
+		if cfg.Stats {
+			os.Stderr.WriteString(stats.String())
 		}
 	},
 }
@@ -139,4 +144,5 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfg.QueryFilter, "query", "q", "", "Pass a query string to the server. Incompatible with --filter-type=server")
 	rootCmd.PersistentFlags().StringVarP(&cfg.FixableFilter, "fixable", "f", "", "Filter on whether a cve is fixable.  Available options: [true, false, \"\"].")
 	rootCmd.PersistentFlags().StringVarP(&cfg.FilterType, "filter-type", "t", "client", "Where to do the param-based filtering. Available options: [client, server]")
+	rootCmd.PersistentFlags().BoolVarP(&cfg.Stats, "stats", "s", false, "Print stats about the export")
 }
